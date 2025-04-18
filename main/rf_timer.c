@@ -4,7 +4,7 @@
 static bool IRAM_ATTR rf_timer_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *arg) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     RFTransmitter* rf_rmt = (RFTransmitter*)arg;
-    if (rf_rmt->active) {
+    if (rf_rmt->tx_active) {
         if (rf_rmt->pulse_index < rf_rmt->pulse_count) {
             gpio_set_level(rf_rmt->tx_gpio, rf_rmt->pulses[rf_rmt->pulse_index].level);
 
@@ -29,7 +29,7 @@ static bool IRAM_ATTR rf_timer_callback(gptimer_handle_t timer, const gptimer_al
                 gptimer_start(timer);
                 rf_rmt->pulse_index++;
             } else {
-                rf_rmt->active = false;
+                rf_rmt->tx_active = false;
                 rf_rmt->current_rep = 0;
                 if (rf_rmt->rf_trans_handle)
                     vTaskNotifyGiveFromISR(rf_rmt->rf_trans_handle, &xHigherPriorityTaskWoken);
@@ -71,7 +71,7 @@ esp_err_t rf_timer_reset(RFTransmitter* rf_rmt) {
     ESP_ERROR_CHECK(gptimer_set_raw_count(rf_rmt->timer, 0));
     rf_rmt->pulse_index = 0;
     rf_rmt->current_rep = 0;
-    rf_rmt->active = false;
+    rf_rmt->tx_active = false;
     gpio_set_level(rf_rmt->tx_gpio, 0);
     ESP_LOGI(TAG, "Timer reset");
     return ESP_OK;

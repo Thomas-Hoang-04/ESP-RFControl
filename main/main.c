@@ -31,6 +31,10 @@ static void transmission_task(void* arg)
             ESP_ERROR_CHECK(rf_send(rf_rmt));
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             ESP_LOGI(TAG, "Transmission completed");
+            if (rf_rmt->rx_gpio_state != GPIO_NUM_NC) {
+                ESP_ERROR_CHECK(rf_recv_init(rf_rmt->rx_gpio_state, rf_rmt));
+                ESP_LOGI(TAG, "RF receiver reinitialized");
+            }
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }
@@ -38,15 +42,8 @@ static void transmission_task(void* arg)
 
 void app_main(void)
 {
-    Protocol proto = {
-        .pulse_length = FAST_PULSE_LEN,
-        .sync_factor = { .high = 1, .low = 31 },
-        .zero = { .high = 1, .low = 3 },
-        .one = { .high = 3, .low = 1 },
-    };
-
     RFTransmitter rf_rmt;
-    ESP_ERROR_CHECK(rf_init(GPIO_NUM_40, OPT_REPEAT_COUNT, &proto, &rf_rmt));
+    ESP_ERROR_CHECK(rf_init(GPIO_NUM_40, OPT_REPEAT_COUNT, &proto[0], &rf_rmt));
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
