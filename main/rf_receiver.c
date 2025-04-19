@@ -1,3 +1,4 @@
+#include <string.h>
 #include "rf_common.h"
 #include "esp_check.h"
 #include "esp_log.h"
@@ -92,7 +93,6 @@ esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFTransmitter* rf_rmt) {
         .intr_type = GPIO_INTR_ANYEDGE,
     };
     ESP_ERROR_CHECK(gpio_config(&io_conf_rx));
-    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_install_isr_service(0));
     ESP_LOGI(TAG, "ISR service installed");
     ESP_ERROR_CHECK(gpio_isr_handler_add(rx_gpio, rf_recv_isr_handler, rf_rmt));
     ESP_LOGI(TAG, "ISR handler added for GPIO %d", rx_gpio);
@@ -109,30 +109,104 @@ esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFTransmitter* rf_rmt) {
 
 }
 
-esp_err_t rf_recv_deinit(RFTransmitter* rf_rmt) {
+esp_err_t rf_recv_deinit(RFTransmitter* rf_rmt, bool restore) {
     ESP_RETURN_ON_FALSE(rf_rmt && rf_rmt->init, ESP_ERR_INVALID_ARG, TAG, "Invalid RF receiver");
-    ESP_RETURN_ON_FALSE(rf_rmt->rx_gpio == GPIO_NUM_NC, ESP_ERR_INVALID_STATE, TAG, "RF receiver is not active");
+    ESP_RETURN_ON_FALSE(rf_rmt->rx_gpio != GPIO_NUM_NC, ESP_ERR_INVALID_STATE, TAG, "RF receiver is not active");
 
     ESP_ERROR_CHECK(gpio_isr_handler_remove(rf_rmt->rx_gpio));
     ESP_LOGI(TAG, "ISR handler removed for GPIO %d", rf_rmt->rx_gpio);
     ESP_ERROR_CHECK(gpio_reset_pin(rf_rmt->rx_gpio));
     rf_rmt->rx_gpio = GPIO_NUM_NC;
-    rf_rmt->rx_gpio_state = GPIO_NUM_NC;
+    if (!restore) rf_rmt->rx_gpio_state = GPIO_NUM_NC;
 
     ESP_LOGI(TAG, "RF receiver deinitialized");
     return ESP_OK;
 }
 
-bool recv_available(RFTransmitter* rf_rmt) {
-    // ESP_RETURN_ON_FALSE(rf_rmt && rf_rmt->init, ESP_ERR_INVALID_ARG, TAG, "Invalid RF module");
-    // ESP_RETURN_ON_FALSE(rf_rmt->rx_gpio != GPIO_NUM_NC, ESP_ERR_INVALID_STATE, TAG, "RF receiver is not active");
+esp_err_t recv_available(RFTransmitter* rf_rmt) {
+    ESP_RETURN_ON_FALSE(rf_rmt && rf_rmt->init, ESP_ERR_INVALID_ARG, TAG, "Invalid RF module");
 
-    return (rf_rmt->recv_value != 0);
+    if (rf_rmt->rx_gpio == GPIO_NUM_NC)
+        return ESP_ERR_INVALID_STATE;
+
+    return (rf_rmt->recv_value != 0) ? ESP_OK : ESP_ERR_NOT_FOUND;
 }
 
 void reset_recv(RFTransmitter* rf_rmt) {
-    // ESP_RETURN_VOID_ON_FALSE(rf_rmt && rf_rmt->init, ESP_ERR_INVALID_ARG, TAG, "Invalid RF module");
-    // ESP_RETURN_VOID_ON_FALSE(rf_rmt->rx_gpio != GPIO_NUM_NC, ESP_ERR_INVALID_STATE, TAG, "RF receiver is not active");
+    ESP_RETURN_VOID_ON_FALSE(rf_rmt && rf_rmt->init, TAG, "Invalid RF module");
+    ESP_RETURN_VOID_ON_FALSE(rf_rmt->rx_gpio != GPIO_NUM_NC, TAG, "RF receiver is not active");
 
     rf_rmt->recv_value = 0;
+}
+
+static void decode_recv(RFTransmitter* rf_rmt, RFRecvData* recv_data) {
+    ESP_RETURN_VOID_ON_FALSE(rf_rmt && rf_rmt->init, TAG, "Invalid RF module");
+    ESP_RETURN_VOID_ON_FALSE(rf_rmt->rx_gpio != GPIO_NUM_NC, TAG, "RF receiver is not active");
+
+    uint32_t code = rf_rmt->recv_value;
+    const uint32_t recv_len = rf_rmt->recv_bit_length;
+    recv_data->original_value = code;
+    recv_data->tri_state = NULL;
+    recv_data->binary = NULL;
+
+    static char buffer[64];
+    uint8_t pos = 0;
+    while (code) {
+        buffer[32 + pos] = (code & 1) ? '1' : '0';
+        code >>= 1;
+        pos++;
+    }
+
+    for (uint8_t j = 0; j < recv_len; j++) {
+        if (j >= recv_len - pos) buffer[j] = buffer[31 - j + recv_len];
+        else buffer[j] = '0';
+    }
+    buffer[recv_len] = '\0';
+    recv_data->binary = malloc(recv_len + 1);
+    if (recv_data->binary) {
+        strcpy(recv_data->binary, buffer);
+    } else {
+        ESP_LOGE(TAG, "Memory allocation failed for binary data");
+        return;
+    }
+
+    pos = 0;
+    uint8_t pos2 = 0;
+    memset(buffer, 0, sizeof(buffer));
+    const char* ref = recv_data->binary;
+    while (ref[pos] && ref[pos + 1]) {
+        if (ref[pos] == '0' && ref[pos + 1] == '0') 
+            buffer[pos2] = '0';
+        else if (ref[pos] == '1' && ref[pos + 1] == '1')
+            buffer[pos2] = '1';
+        else if (ref[pos] == '0' && ref[pos + 1] == '1')
+            buffer[pos2] = 'F';
+        else {
+            ESP_LOGE(TAG, "Invalid data: %c%c", ref[pos], ref[pos + 1]);
+            return;
+        }
+        pos += 2;
+        pos2++;
+    }
+    buffer[pos2] = '\0';
+    recv_data->tri_state = malloc(pos2 + 1);
+    if (recv_data->tri_state) {
+        strcpy(recv_data->tri_state, buffer);
+    } else {
+        ESP_LOGE(TAG, "Memory allocation failed for tri-state data");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Decode completed");
+}
+
+void output_recv(RFTransmitter* rf_rmt) {
+    RFRecvData recv_data;
+    decode_recv(rf_rmt, &recv_data);
+    ESP_LOGI(TAG, "Received data!");
+    ESP_LOGI(TAG, "Original value: %lu", recv_data.original_value);
+    ESP_LOGI(TAG, "Hexadecimal: 0x%lx", recv_data.original_value);
+    ESP_LOGI(TAG, "Binary: %s", recv_data.binary);
+    ESP_LOGI(TAG, "Tri-state: %s", recv_data.tri_state);
+    ESP_LOGI(TAG, "Pulse length: %lu", rf_rmt->recv_delay);
 }

@@ -40,15 +40,32 @@ static void transmission_task(void* arg)
     }
 }
 
+static void reception_task(void* arg)
+{
+    RFTransmitter* rf_rmt = (RFTransmitter*)arg;
+    ESP_ERROR_CHECK(rf_recv_init(GPIO_NUM_41, rf_rmt));
+    ESP_LOGI(TAG, "Waiting for RF reception...");
+    while (1) {
+        if (recv_available(rf_rmt) == ESP_OK) {
+            output_recv(rf_rmt);
+            reset_recv(rf_rmt);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
 void app_main(void)
 {
     RFTransmitter rf_rmt;
-    ESP_ERROR_CHECK(rf_init(GPIO_NUM_40, OPT_REPEAT_COUNT, &proto[0], &rf_rmt));
+    ESP_ERROR_CHECK(rf_init(GPIO_NUM_40, RC_SWITCH_REPEAT_COUNT, &proto[0], &rf_rmt));
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     xTaskCreate(transmission_task, "transmission_task", 8192, &rf_rmt, 5, &rf_rmt.rf_trans_handle);
     ESP_LOGI(TAG, "RF transmission task created");
+
+    xTaskCreate(reception_task, "reception_task", 8192, &rf_rmt, 5, &rf_rmt.rf_recv_handle);
+    ESP_LOGI(TAG, "RF reception task created");
 
     while (1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);

@@ -64,6 +64,12 @@ typedef struct {
 } RFPulse;
 
 typedef struct {
+    uint32_t original_value;
+    char* tri_state;
+    char* binary;
+} RFRecvData;
+
+typedef struct {
     // Pulse data for transmission
     RFPulse* pulses;
     size_t pulse_count;
@@ -84,13 +90,15 @@ typedef struct {
     gpio_num_t rx_gpio, rx_gpio_state;
 
     Protocol* proto;
-    TaskHandle_t rf_trans_handle;
+    TaskHandle_t rf_trans_handle, rf_recv_handle;
     gptimer_handle_t timer;
 } RFTransmitter;
 
 esp_err_t rf_init(gpio_num_t tx_gpio, int8_t repeat_count, Protocol* tx_proto, RFTransmitter* rf_rmt);
 
 esp_err_t rf_deinit(RFTransmitter* rf_rmt);
+
+esp_err_t translate_tristate(const char* data, RFTransmitter* rf_rmt);
 
 esp_err_t rf_send(RFTransmitter* rf_rmt);
 
@@ -102,12 +110,12 @@ esp_err_t rf_timer_reset(RFTransmitter* rf_rmt);
 
 esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFTransmitter* rf_rmt);
 
-esp_err_t rf_recv_deinit(RFTransmitter* rf_rmt);
+esp_err_t rf_recv_deinit(RFTransmitter* rf_rmt, bool restore);
 
-esp_err_t translate_tristate(const char* data, RFTransmitter* rf_rmt);
-
-bool recv_available(RFTransmitter* rf_rmt);
+esp_err_t recv_available(RFTransmitter* rf_rmt);
 
 void reset_recv(RFTransmitter* rf_rmt);
 
-#endif
+void output_recv(RFTransmitter* rf_rmt);
+
+#endif // RF_TEST_H

@@ -94,10 +94,12 @@ esp_err_t rf_init(gpio_num_t tx_gpio, int8_t repeat_count, Protocol* tx_proto, R
     rf_rmt->rx_gpio = GPIO_NUM_NC;
     rf_rmt->rx_gpio_state = GPIO_NUM_NC;
 
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
     ESP_ERROR_CHECK(rf_timer_init(rf_rmt));
 
     rf_rmt->init = true;
-    ESP_LOGI(TAG, "RF transmitter initialized");
+    ESP_LOGI(TAG, "RF module initialized");
 
     return ESP_OK;
 }
@@ -123,11 +125,11 @@ esp_err_t rf_deinit(RFTransmitter* rf_rmt) {
     gpio_reset_pin(rf_rmt->tx_gpio);
     rf_rmt->tx_gpio = GPIO_NUM_NC;
 
-    ESP_ERROR_CHECK(rf_recv_deinit(rf_rmt));
+    ESP_ERROR_CHECK(rf_recv_deinit(rf_rmt, false));
     gpio_uninstall_isr_service();
 
     rf_rmt->init = false;
-    ESP_LOGI(TAG, "RF transmitter deinitialized");
+    ESP_LOGI(TAG, "RF module deinitialized");
     return ESP_OK;
 }
 
@@ -139,7 +141,7 @@ esp_err_t rf_send(RFTransmitter* rf_rmt) {
     ESP_LOGI(TAG, "Starting RF transmission");
     if (rf_rmt->rx_gpio != GPIO_NUM_NC) {
         rf_rmt->rx_gpio_state = rf_rmt->rx_gpio;
-        ESP_ERROR_CHECK(rf_recv_deinit(rf_rmt));
+        ESP_ERROR_CHECK(rf_recv_deinit(rf_rmt, true));
     }
 
     rf_rmt->tx_active = true;
