@@ -1,1 +1,8 @@
 /build
+
+/.vscode
+
+sdkconfig
+sdkconfig.*
+
+/.devcontainer
