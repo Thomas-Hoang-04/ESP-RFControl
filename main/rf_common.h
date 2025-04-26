@@ -17,17 +17,13 @@
 #define SEPARATION_LIMIT 4300
 #define PROTO_COUNT 12
 
+static const uint32_t ref_val = 5592323;
+
 enum {
     RC_SWITCH_1_PULSE_LEN = 350,
     COM_PULSE_LEN = 320,
     FAST_PULSE_LEN = 240,
     FLASH_PULSE_LEN = 150,
-};
-
-enum {
-    RC_SWITCH_REPEAT_COUNT = 10,
-    OPT_REPEAT_COUNT = 5,
-    FAST_REPEAT_COUNT = 4,
 };
 
 typedef struct {
@@ -59,63 +55,51 @@ static const DRAM_ATTR Protocol proto[] = {
 };
 
 typedef struct {
-    uint8_t level;
-    uint32_t pulse_length;
-} RFPulse;
-
-typedef struct {
     uint32_t original_value;
     char* tri_state;
     char* binary;
 } RFRecvData;
 
 typedef struct {
-    // Pulse data for transmission
-    RFPulse* pulses;
-    size_t pulse_count;
-    uint8_t pulse_index;
-
-    // Transmission state
-    uint8_t current_rep;
-    uint8_t repeat_count;
-
     // Reception configuration
     uint32_t recv_value, recv_bit_length, recv_delay, separation_limit;
     uint8_t recv_proto, recv_tolerance;
     uint32_t recv_timings[MAX_EDGES];
 
     // GPIO configuration
-    bool tx_active, init;
-    gpio_num_t tx_gpio;
+    bool init, timer_running;
     gpio_num_t rx_gpio, rx_gpio_state;
+    gpio_num_t led_status_gpio;
+    gpio_num_t motor_gpio, reset_gpio;
+    volatile uint8_t motor_status, led_status;
 
-    Protocol* proto;
-    TaskHandle_t rf_trans_handle, rf_recv_handle;
+    TaskHandle_t rf_recv_handle;
     gptimer_handle_t timer;
-} RFTransmitter;
+} RFReceiver;
 
-esp_err_t rf_init(gpio_num_t tx_gpio, int8_t repeat_count, Protocol* tx_proto, RFTransmitter* rf_rmt);
+esp_err_t rf_init(gpio_num_t led_status_gpio, gpio_num_t motor_gpio,
+    gpio_num_t reset_gpio, RFReceiver* rf_recv_mod);
 
-esp_err_t rf_deinit(RFTransmitter* rf_rmt);
+esp_err_t rf_deinit(RFReceiver* rf_recv_mod);
 
-esp_err_t translate_tristate(const char* data, RFTransmitter* rf_rmt);
-
-esp_err_t rf_send(RFTransmitter* rf_rmt);
-
-esp_err_t rf_timer_init(RFTransmitter* rf_rmt);
+esp_err_t rf_timer_init(RFReceiver* rf_recv_mod);
 
 esp_err_t rf_timer_deinit(gptimer_handle_t timer);
 
-esp_err_t rf_timer_reset(RFTransmitter* rf_rmt);
+esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFReceiver* rf_recv_mod);
 
-esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFTransmitter* rf_rmt);
+esp_err_t rf_recv_deinit(RFReceiver* rf_recv_mod, bool restore);
 
-esp_err_t rf_recv_deinit(RFTransmitter* rf_rmt, bool restore);
+esp_err_t recv_available(RFReceiver* rf_recv_mod);
 
-esp_err_t recv_available(RFTransmitter* rf_rmt);
+void reset_recv(RFReceiver* rf_recv_mod);
 
-void reset_recv(RFTransmitter* rf_rmt);
+void output_recv(RFReceiver* rf_recv_mod);
 
-void output_recv(RFTransmitter* rf_rmt);
+void led_flash(RFReceiver* rf_recv_mod);
+
+void motor_trigger_led(RFReceiver* rf_recv_mod);
+
+esp_err_t set_reset_isr(gpio_num_t reset_gpio, RFReceiver* rf_recv_mod);
 
 #endif // RF_TEST_H
