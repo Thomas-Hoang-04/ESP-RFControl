@@ -79,7 +79,7 @@ static void IRAM_ATTR rf_recv_isr_handler(void* arg) {
     last_time = (uint64_t)time;
 }
 
-esp_err_t rf_init(gpio_num_t led_status_gpio, gpio_num_t motor_gpio,
+esp_err_t rf_init(gpio_num_t signal_status_gpio, gpio_num_t motor_gpio, gpio_num_t motor_status_gpio,
     gpio_num_t reset_gpio, RFReceiver* rf_recv_mod) {
     ESP_RETURN_ON_FALSE(rf_recv_mod, ESP_ERR_INVALID_ARG, TAG, "Invalid RF module");
 
@@ -91,17 +91,16 @@ esp_err_t rf_init(gpio_num_t led_status_gpio, gpio_num_t motor_gpio,
     ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LEVEL3));
 
     gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << led_status_gpio),
+        .pin_bit_mask = (1ULL << signal_status_gpio),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
     ESP_ERROR_CHECK(gpio_config(&io_conf));
-    ESP_ERROR_CHECK(gpio_set_level(led_status_gpio, 0));
-    ESP_LOGI(TAG, "GPIO %d configured for LED output", led_status_gpio);
-    rf_recv_mod->led_status_gpio = led_status_gpio;
-    rf_recv_mod->led_status = 0;
+    ESP_ERROR_CHECK(gpio_set_level(signal_status_gpio, 0));
+    ESP_LOGI(TAG, "GPIO %d configured for LED output", signal_status_gpio);
+    rf_recv_mod->signal_status_gpio = signal_status_gpio;
 
     io_conf.pin_bit_mask = (1ULL << motor_gpio);
     ESP_ERROR_CHECK(gpio_config(&io_conf));
@@ -109,6 +108,12 @@ esp_err_t rf_init(gpio_num_t led_status_gpio, gpio_num_t motor_gpio,
     ESP_LOGI(TAG, "GPIO %d configured for motor output", motor_gpio);
     rf_recv_mod->motor_gpio = motor_gpio;
     rf_recv_mod->motor_status = 0;
+
+    io_conf.pin_bit_mask = (1ULL << motor_status_gpio);
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
+    ESP_ERROR_CHECK(gpio_set_level(motor_status_gpio, 0));
+    ESP_LOGI(TAG, "GPIO %d configured for motor status LED output", motor_status_gpio);
+    rf_recv_mod->motor_status_gpio = motor_status_gpio;
 
     io_conf.pin_bit_mask = (1ULL << reset_gpio);
     io_conf.mode = GPIO_MODE_INPUT;
@@ -134,11 +139,14 @@ esp_err_t rf_deinit(RFReceiver* rf_recv_mod) {
     ESP_ERROR_CHECK(rf_recv_deinit(rf_recv_mod, false));
     gpio_uninstall_isr_service();
 
-    ESP_ERROR_CHECK(gpio_reset_pin(rf_recv_mod->led_status_gpio));
-    rf_recv_mod->led_status_gpio = GPIO_NUM_NC;
+    ESP_ERROR_CHECK(gpio_reset_pin(rf_recv_mod->signal_status_gpio));
+    rf_recv_mod->signal_status_gpio = GPIO_NUM_NC;
 
     ESP_ERROR_CHECK(gpio_reset_pin(rf_recv_mod->motor_gpio));
     rf_recv_mod->motor_gpio = GPIO_NUM_NC;
+
+    ESP_ERROR_CHECK(gpio_reset_pin(rf_recv_mod->motor_status_gpio));
+    rf_recv_mod->motor_status_gpio = GPIO_NUM_NC;
 
     ESP_ERROR_CHECK(gpio_reset_pin(rf_recv_mod->reset_gpio));
     rf_recv_mod->reset_gpio = GPIO_NUM_NC;

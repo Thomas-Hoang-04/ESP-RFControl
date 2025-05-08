@@ -69,15 +69,15 @@ typedef struct {
     // GPIO configuration
     bool init, timer_running;
     gpio_num_t rx_gpio, rx_gpio_state;
-    gpio_num_t led_status_gpio;
+    gpio_num_t signal_status_gpio, motor_status_gpio;
     gpio_num_t motor_gpio, reset_gpio;
-    volatile uint8_t motor_status, led_status;
+    volatile uint8_t motor_status;
 
     TaskHandle_t rf_recv_handle;
     gptimer_handle_t timer;
 } RFReceiver;
 
-esp_err_t rf_init(gpio_num_t led_status_gpio, gpio_num_t motor_gpio,
+esp_err_t rf_init(gpio_num_t signal_status_gpio, gpio_num_t motor_gpio, gpio_num_t motor_status_gpio,
     gpio_num_t reset_gpio, RFReceiver* rf_recv_mod);
 
 esp_err_t rf_deinit(RFReceiver* rf_recv_mod);
@@ -97,8 +97,6 @@ void reset_recv(RFReceiver* rf_recv_mod);
 void output_recv(RFReceiver* rf_recv_mod);
 
 void led_flash(RFReceiver* rf_recv_mod);
-
-void motor_trigger_led(RFReceiver* rf_recv_mod);
 
 esp_err_t set_reset_isr(gpio_num_t reset_gpio, RFReceiver* rf_recv_mod);
 

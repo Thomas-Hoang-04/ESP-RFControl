@@ -5,15 +5,10 @@ static bool IRAM_ATTR rf_timer_callback(gptimer_handle_t timer, const gptimer_al
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     RFReceiver* rf_recv_mod = (RFReceiver*)arg;
 
-    if (rf_recv_mod->motor_status) {
-        rf_recv_mod->led_status = !rf_recv_mod->led_status;
-        gpio_set_level(rf_recv_mod->led_status_gpio, rf_recv_mod->led_status);
-    } else {
-        gptimer_stop(timer);
-        gptimer_set_raw_count(timer, 0);
-        gpio_set_level(rf_recv_mod->led_status_gpio, 0);
-        rf_recv_mod->timer_running = false;
-    }
+    gptimer_stop(timer);
+    gptimer_set_raw_count(timer, 0);
+    gpio_set_level(rf_recv_mod->signal_status_gpio, 0);
+    rf_recv_mod->timer_running = false;
 
     return (xHigherPriorityTaskWoken == pdTRUE);
 }
