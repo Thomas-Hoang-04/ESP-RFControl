@@ -26,13 +26,12 @@ static void reception_task(void* arg)
     while (1) {
         if (recv_available(rf_recv_mod) == ESP_OK) {
             output_recv(rf_recv_mod);
+            led_flash(rf_recv_mod);
             if (rf_recv_mod->recv_value == ref_val) {
                 rf_recv_mod->motor_status = !rf_recv_mod->motor_status;
                 ESP_ERROR_CHECK(gpio_set_level(rf_recv_mod->motor_gpio, rf_recv_mod->motor_status));
                 vTaskDelay(pdMS_TO_TICKS(25));
                 ESP_ERROR_CHECK(gpio_set_level(rf_recv_mod->motor_status_gpio, rf_recv_mod->motor_status));
-            } else {
-                led_flash(rf_recv_mod);
             }
             reset_recv(rf_recv_mod);
         }
@@ -53,22 +52,4 @@ void app_main(void)
     while (1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-
-    // gpio_num_t led_gpio = GPIO_NUM_7;
-    // gpio_config_t output_test = {
-    //     .pin_bit_mask = (1ULL << led_gpio),
-    //     .mode = GPIO_MODE_OUTPUT,
-    //     .pull_up_en = GPIO_PULLUP_DISABLE,
-    //     .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    //     .intr_type = GPIO_INTR_DISABLE
-    // };
-    // ESP_ERROR_CHECK(gpio_config(&output_test));
-    // ESP_LOGI(TAG, "GPIO %d configured for output", led_gpio);
-
-    // while (1) {
-    //     ESP_ERROR_CHECK(gpio_set_level(led_gpio, 1));
-    //     vTaskDelay(pdMS_TO_TICKS(5000));
-    //     ESP_ERROR_CHECK(gpio_set_level(led_gpio, 0));
-    //     vTaskDelay(pdMS_TO_TICKS(1500));
-    // }
 }
