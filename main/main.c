@@ -49,6 +49,7 @@ void app_main(void)
     xTaskCreate(reception_task, "reception_task", 8192, &rf_recv_mod, 5, &rf_recv_mod.rf_recv_handle);
     ESP_LOGI(TAG, "RF reception task created");
 
+    // The infinite loop here to prevent the system from wiping the memory upon returning from main
     while (1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
