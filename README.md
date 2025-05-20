@@ -46,6 +46,7 @@ _Note: This installation will target VS Code user. Eclipse user can refer to the
  ## Notes:
  - This project is configured for ESP32-C3, with the pinout configuration defined in the main/main.c. If you wish to reconfigure for other targets _(i.e. ESP32, ESP32-S3, etc)_, please rewrite the pinout scheme if necessary.
  - For ESP32-C3, **avoid GPIO20 and GPIO21** as they can interfere with the primary UART channel. **Caution on using GPIO2, GPIO8 and GPIO9** as they are **strapping pins** and can interfere with the boot sequence if not set up properly _**(recommended as I/O with pull-up resistors enabled)**_
+ - A full version of the ported rc-switch library _(which handles RF signal encoding/decoding for both transmission & reception) can be found on the [main](https://github.com/Thomas-Hoang-04/ESP-RFControl/blob/main/README.md) branch of this repository_
  - If you wish to **activate other interrupts** beside the one for RF signal reception, please be advised that the **RF functionality may be disrupted** as a result since the interrupts can collide with one another, causing some to be masked
  - API guides for the ESP-IDF component used _(for ESP32-C3)_: [GPIO](https://docs.espressif.com/projects/esp-idf/en/v5.4.1/esp32c3/api-reference/peripherals/gpio.html), [General Purpose Timer (GPTimer)](https://docs.espressif.com/projects/esp-idf/en/v5.4.1/esp32c3/api-reference/peripherals/gptimer.html)
 
